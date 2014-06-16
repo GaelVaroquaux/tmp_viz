@@ -16,11 +16,30 @@ from scipy import stats, ndimage
 
 # Local imports
 from ..mask import largest_cc
-from ..datasets.transforms.affine_utils import get_bounds
 
 ################################################################################
 # Functions for automatic choice of cuts coordinates
 ################################################################################
+
+def get_bounds(shape, affine):
+    """ Return the world-space bounds occupied by an array given an affine.
+    """
+    adim, bdim, cdim = shape
+    adim -= 1
+    bdim -= 1
+    cdim -= 1
+    # form a collection of vectors for each 8 corners of the box
+    box = np.array([ [0.,   0,    0,    1],
+                     [adim, 0,    0,    1],
+                     [0,    bdim, 0,    1],
+                     [0,    0,    cdim, 1],
+                     [adim, bdim, 0,    1],
+                     [adim, 0,    cdim, 1],
+                     [0,    bdim, cdim, 1],
+                     [adim, bdim, cdim, 1] ]).T
+    box = np.dot(affine, box)[:3]
+    return zip(box.min(axis=-1), box.max(axis=-1))
+
 
 def coord_transform(x, y, z, affine):
     """ Convert the x, y, z coordinates from one image space to another
