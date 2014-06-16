@@ -13,7 +13,6 @@ import numpy as np
 from nipy.utils.skip_test import skip_if_running_nose
 
 try:
-    import matplotlib as mpl
     import pylab as pl
     from matplotlib import transforms
 except ImportError:
@@ -26,30 +25,6 @@ from .coord_tools import coord_transform, get_bounds, get_mask_bounds, \
 from .edge_detect import _edge_map
 from . import cm
 from ..datasets import VolumeImg
-
-################################################################################
-# Bugware to have transparency work OK with MPL < .99.1
-if mpl.__version__ < '0.99.1':
-    # We wrap the lut as a callable and replace its evalution to put
-    # alpha to zero where the mask is true. This is what is done in
-    # MPL >= .99.1
-    from matplotlib import colors
-    class CMapProxy(colors.Colormap):
-        def __init__(self, lut):
-            self.__lut = lut
-
-        def __call__(self, arr, *args, **kwargs):
-            results = self.__lut(arr, *args, **kwargs)
-            if not isinstance(arr, np.ma.MaskedArray):
-                return results
-            else:
-                results[arr.mask, -1] = 0
-            return results
-
-        def __getattr__(self, attr):
-            # Dark magic: we are delegating any call to the lut instance
-            # we wrap
-            return self.__dict__.get(attr, getattr(self.__lut, attr))
 
 
 def _xyz_order(map, affine):
@@ -119,10 +94,6 @@ class CutAxes(object):
                   type='imshow', **kwargs):
         # kwargs massaging
         kwargs['origin'] = 'upper'
-        if mpl.__version__ < '0.99.1':
-            cmap = kwargs.get('cmap',
-                        pl.cm.cmap_d[pl.rcParams['image.cmap']])
-            kwargs['cmap'] = CMapProxy(cmap)
 
         if self.direction == 'y':
             (xmin, xmax), (_, _), (zmin, zmax) = data_bounds

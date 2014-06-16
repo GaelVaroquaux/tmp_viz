@@ -3,19 +3,17 @@
 """
 Edget detection routines
 """
-import warnings
 
 import numpy as np
 from scipy import ndimage, signal
 
 try:
-    # Protect this import as it is compiled code
-    from nipy.algorithms.statistics import quantile
-except ImportError, e:
-    warnings.warn('Could not import fast quantile function: %s' % e)
-    quantile = None
+    # partition is available only in numpy >= 1.8.0
+    from numpy import partition
+except ImportError:
+    partition = None
 
-                   
+
 ################################################################################
 # Edge detection
 
@@ -23,14 +21,15 @@ def _fast_abs_percentile(map, percentile=80):
     """ A fast version of the percentile of the absolute value.
     """
     if hasattr(map, 'mask'):
+        # Catter for masked arrays
         map = np.asarray(map[np.logical_not(map.mask)])
     map = np.abs(map)
     map = map.ravel()
-    if quantile is not None:
-        return quantile(map, .01*percentile)
-    map.sort()
-    nb = map.size
-    return map[.01*percentile*nb]
+    index = int(map.size * .01 * percentile)
+    if partition is not None:
+        # Partial sort: faster than sort
+        return partition(map, index)[index]
+    map.sort()[index]
 
 
 def _orientation_kernel(t):
