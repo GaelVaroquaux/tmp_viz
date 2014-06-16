@@ -3,8 +3,7 @@
 """
 Functions to do automatic visualization of activation-like maps.
 
-For 2D-only visualization, only matplotlib is required.
-For 3D visualization, Mayavi, version 3.0 or greater, is required.
+Only matplotlib is required.
 
 For a demo, see the 'demo_plot_map' function.
 
@@ -45,8 +44,6 @@ from edge_detect import _fast_abs_percentile
 def plot_map(map, affine, cut_coords=None, anat=None, anat_affine=None,
                     slicer='ortho', figure=None, axes=None, title=None,
                     threshold=None, annotate=True, draw_cross=True,
-                    do3d=False, threshold_3d=None,
-                    view_3d=(38.5, 70.5, 300, (-2.7, -12, 9.1)),
                     black_bg=False, **kwargs):
     """ Plot three cuts of a given activation map (Frontal, Axial, and Lateral)
 
@@ -95,17 +92,6 @@ def plot_map(map, affine, cut_coords=None, anat=None, anat_affine=None,
         draw_cross: boolean, optional
             If draw_cross is True, a cross is drawn on the plot to
             indicate the cut plosition.
-        do3d: {True, False or 'interactive'}, optional
-            If True, Mayavi is used to plot a 3D view of the
-            map in addition to the slicing. If 'interactive', the
-            3D visualization is displayed in an additional interactive
-            window.
-        threshold_3d:
-            The threshold to use for the 3D view (if any). Defaults to
-            the same threshold as that used for the 2D view.
-        view_3d: tuple,
-            The view used to take the screenshot: azimuth, elevation,
-            distance and focalpoint, see the docstring of mlab.view.
         black_bg: boolean, optional
             If True, the background of the image is set to be black. If
             you whish to save figures with a black background, you
@@ -140,18 +126,6 @@ def plot_map(map, affine, cut_coords=None, anat=None, anat_affine=None,
         # voxels are indeed threshold
         threshold = _fast_abs_percentile(map) + 1e-5
 
-    if do3d:
-        try:
-            try:
-                from mayavi import version
-            except ImportError:
-                from enthought.mayavi import version
-            if not int(version.version[0]) > 2:
-                raise ImportError
-        except ImportError:
-            warnings.warn('Mayavi > 3.x not installed, plotting only 2D')
-            do3d = False
-
     if cut_coords is None and slicer in 'xyz':
         cut_coords = get_cut_coords(map)
 
@@ -161,59 +135,6 @@ def plot_map(map, affine, cut_coords=None, anat=None, anat_affine=None,
                                           figure=figure, axes=axes,
                                           black_bg=black_bg,
                                           leave_space=do3d)
-
-    # Use Mayavi for the 3D plotting
-    if do3d:
-        from .maps_3d import plot_map_3d, m2screenshot
-        try:
-            from tvtk.api import tvtk
-        except ImportError:
-            from enthought.tvtk.api import tvtk
-        version = tvtk.Version()
-        offscreen = True
-        if (version.vtk_major_version, version.vtk_minor_version) < (5, 2):
-            offscreen = False
-        if do3d == 'interactive':
-            offscreen = False
-
-        cmap = kwargs.get('cmap', pl.cm.cmap_d[pl.rcParams['image.cmap']])
-        # Computing vmin and vmax is costly in time, and is needed
-        # later, so we compute them now, and store them for future
-        # use
-        vmin = kwargs.get('vmin', map.min())
-        kwargs['vmin'] = vmin
-        vmax = kwargs.get('vmax', map.max())
-        kwargs['vmax'] = vmax
-        try:
-            from mayavi import mlab
-        except ImportError:
-            from enthought.mayavi import mlab
-        if threshold_3d is None:
-            threshold_3d = threshold
-        plot_map_3d(np.asarray(map), affine, cut_coords=cut_coords,
-                    anat=anat, anat_affine=anat_affine, 
-                    offscreen=offscreen, cmap=cmap,
-                    threshold=threshold_3d,
-                    view=view_3d,
-                    vmin=vmin, vmax=vmax)
-
-        ax = slicer.axes.values()[0].ax.figure.add_axes((0.001, 0, 0.29, 1))
-        ax.axis('off')
-        m2screenshot(mpl_axes=ax)
-        if offscreen:
-            # Clean up, so that the offscreen engine doesn't become the
-            # default
-            mlab.clf()
-            engine = mlab.get_engine()
-            try:
-                from mayavi.core.registry import registry
-            except:
-                from enthought.mayavi.core.registry import registry
-            for key, value in registry.engines.iteritems():
-                if value is engine:
-                    registry.engines.pop(key)
-                    break
-
 
     if threshold:
         map = np.ma.masked_inside(map, -threshold, threshold, copy=False)
@@ -352,7 +273,7 @@ def plot_anat(anat=None, anat_affine=None, cut_coords=None, slicer='ortho',
     return slicer
 
 
-def demo_plot_map(do3d=False, **kwargs):
+def demo_plot_map(**kwargs):
     """ Demo activation map plotting.
     """
     map = np.zeros((182, 218, 182))
@@ -366,7 +287,6 @@ def demo_plot_map(do3d=False, **kwargs):
     assert z_map +1 == 95
     map[x_map-5:x_map+5, y_map-3:y_map+3, z_map-10:z_map+10] = 1
     return plot_map(map, mni_sform, threshold='auto',
-                        title="Broca's area", do3d=do3d,
-                        **kwargs)
+                        title="Broca's area", **kwargs)
 
 
