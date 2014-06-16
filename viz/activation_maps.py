@@ -20,7 +20,8 @@ import operator
 # delayed, so that the part module can be used without them).
 import numpy as np
 
-# Import pylab
+import nibabel
+
 from nipy.utils.skip_test import skip_if_running_nose
 
 try:
@@ -33,7 +34,7 @@ from .coord_tools import (coord_transform,
                           get_cut_coords
                           )
 
-from .slicers import SLICERS, _xyz_order
+from .slicers import SLICERS
 from edge_detect import _fast_abs_percentile
 
 ################################################################################
@@ -41,10 +42,10 @@ from edge_detect import _fast_abs_percentile
 ################################################################################
 
 
-def plot_map(map, affine, cut_coords=None, anat=None, anat_affine=None,
-                    slicer='ortho', figure=None, axes=None, title=None,
-                    threshold=None, annotate=True, draw_cross=True,
-                    black_bg=False, **kwargs):
+def plot_map(niimg, cut_coords=None, anat_img=None,
+             slicer='ortho', figure=None, axes=None, title=None,
+             threshold=None, annotate=True, draw_cross=True,
+             black_bg=False, **kwargs):
     """ Plot three cuts of a given activation map (Frontal, Axial, and Lateral)
 
         Parameters
@@ -112,7 +113,8 @@ def plot_map(map, affine, cut_coords=None, anat=None, anat_affine=None,
             plot_map(map, affine)
     """
 
-    map, affine = _xyz_order(map, affine)
+    map = niimg.get_data()
+    affine = niimg.affine
 
     nan_mask = np.isnan(np.asarray(map))
     if np.any(nan_mask):
@@ -133,50 +135,49 @@ def plot_map(map, affine, cut_coords=None, anat=None, anat_affine=None,
                                           threshold=threshold,
                                           cut_coords=cut_coords,
                                           figure=figure, axes=axes,
-                                          black_bg=black_bg,
-                                          leave_space=do3d)
+                                          black_bg=black_bg)
 
     if threshold:
         map = np.ma.masked_inside(map, -threshold, threshold, copy=False)
 
 
-    _plot_anat(slicer, anat, anat_affine, title=title,
+    _plot_anat(slicer, anat_img, title=title,
                annotate=annotate, draw_cross=draw_cross)
 
-    slicer.plot_map(map, affine, **kwargs)
+    slicer.plot_map(nibabel.Nifti1Image(map, affine), **kwargs)
     return slicer
 
 
-def _plot_anat(slicer, anat, anat_affine, title=None,
+def _plot_anat(slicer, anat_img, title=None,
                annotate=True, draw_cross=True, dim=False, cmap=pl.cm.gray):
     """ Internal function used to plot anatomy
     """
     canonical_anat = False
-    if anat is None:
+    if anat_img is None:
         try:
-            anat, anat_affine, vmax_anat = _AnatCache.get_anat()
+            anat_img, vmax_anat = _AnatCache.get_anat()
             canonical_anat = True
         except OSError, e:
-            anat = False
+            anat_img = False
             warnings.warn(repr(e))
 
     black_bg = slicer._black_bg
     # XXX: Check that we should indeed plot an anat: we have one, and the
     # cut_coords are in its range
 
-    if anat is not False:
+    if anat_img is not False:
         if canonical_anat:
             # We special-case the 'canonical anat', as we don't need
             # to do a few transforms to it.
             vmin = 0
             vmax = vmax_anat
         elif dim:
+            anat = anat_img.get_data()
             vmin = anat.min()
             vmax = anat.max()
         else:
             vmin = None
             vmax = None
-            anat, anat_affine = _xyz_order(anat, anat_affine)
         if dim:
             vmean = .5*(vmin + vmax)
             ptp = .5*(vmax - vmin)
@@ -186,8 +187,7 @@ def _plot_anat(slicer, anat, anat_affine, title=None,
                 vmax = vmean + (1+dim)*ptp
             else:
                 vmin = vmean - (1+dim)*ptp
-        slicer.plot_map(anat, anat_affine, cmap=cmap,
-                              vmin=vmin, vmax=vmax)
+        slicer.plot_map(anat_img, cmap=cmap, vmin=vmin, vmax=vmax)
 
         if annotate:
             slicer.annotate()
@@ -218,8 +218,8 @@ def plot_anat(anat=None, anat_affine=None, cut_coords=None, slicer='ortho',
             The anatomical image to be used as a background. If None is
             given, nipy tries to find a T1 template.
         anat_affine : 4x4 ndarray, optional
-            The affine matrix going from the anatomical image voxel space to 
-            MNI space. This parameter is not used when the default 
+            The affine matrix going from the anatomical image voxel space to
+            MNI space. This parameter is not used when the default
             anatomical is used, but it is compulsory when using an
             explicite anatomical image.
         figure : integer or matplotlib figure, optional
@@ -286,7 +286,8 @@ def demo_plot_map(**kwargs):
     assert y_map +1 == 137
     assert z_map +1 == 95
     map[x_map-5:x_map+5, y_map-3:y_map+3, z_map-10:z_map+10] = 1
-    return plot_map(map, mni_sform, threshold='auto',
+    niimg = nibabel.Nifti1Image(map, mni_sform)
+    return plot_map(niimg, threshold='auto',
                         title="Broca's area", **kwargs)
 
 

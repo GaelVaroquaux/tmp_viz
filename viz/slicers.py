@@ -10,6 +10,7 @@ the data with different layout of cuts.
 import operator
 
 import numpy as np
+import nibabel
 from nipy.utils.skip_test import skip_if_running_nose
 
 try:
@@ -24,96 +25,7 @@ from .coord_tools import coord_transform, get_mask_bounds, \
         find_cut_coords
 from .edge_detect import _edge_map
 from . import cm
-from nilearn.image.resampling import resample_img, get_bounds
-
-import nibabel
-
-# XXX: this function needs to die
-def _xyz_order(map, affine):
-    import nibabel
-    img = nibabel.Nifti1Image(map, affine=affine)
-    img = xyz_ordered(img, resample=True, copy=False)
-    map = img.get_data()
-    affine = img.affine
-    return map, affine
-
-
-###############################################################################
-# XXX: the following needs to be moved in nilearn.image.resampling
-from nilearn.image.resampling import to_matrix_vector, from_matrix_vector
-
-def xyz_ordered(niimg, resample=False):
-    """ Returns an image with the affine diagonal and positive
-        in the world space it is embedded in.
-
-        Parameters
-        -----------
-        resample: boolean, optional
-            If resample is False, no resampling is performed, the
-            axis are only permuted. If it is impossible
-            to get xyz ordering by permuting the axis, a
-            'CompositionError' is raised.
-        copy: boolean, optional
-            If copy is True, a deep copy of the image (including the
-            data) is made.
-    """
-    affine = niimg.get_affine()
-    A, b = to_matrix_vector(affine)
-
-    if not np.all((np.abs(A) > 0.001).sum(axis=0) == 1):
-        # The affine is not nearly diagonal
-        if not resample:
-            raise ValueError(
-            'Cannot reorder the axis: the image affine contains rotations'
-                )
-        else:
-            # Identify the voxel size using a QR decomposition of the
-            # affine
-            R, Q = np.linalg.qr(affine[:3, :3])
-            target_affine = np.diag(np.abs(np.diag(Q))[
-                                                np.abs(R).argmax(axis=1)])
-            return resample_img(niimg, target_affine=target_affine)
-
-    axis_numbers = np.argmax(np.abs(A), axis=0)
-    data = niimg.get_data()
-    while not np.all(np.sort(axis_numbers) == axis_numbers):
-        first_inversion = np.argmax(np.diff(axis_numbers)<0)
-        axis1 = first_inversion + 1
-        axis2 = first_inversion
-        data = np.swapaxes(data, axis1, axis2)
-        order = np.array((0, 1, 2, 3))
-        order[axis1] = axis2
-        order[axis2] = axis1
-        affine = affine.T[order].T
-        A, b = to_matrix_vector(affine)
-        axis_numbers = np.argmax(np.abs(A), axis=0)
-
-    # Now make sure the affine is positive
-    pixdim = np.diag(A).copy()
-    if pixdim[0] < 0:
-        b[0] = b[0] + pixdim[0]*(data.shape[0] - 1)
-        pixdim[0] = -pixdim[0]
-        slice1 = slice(None, None, -1)
-    else:
-        slice1 = slice(None, None, None)
-    if pixdim[1] < 0:
-        b[1] = b[1] + 1 + pixdim[1]*(data.shape[1] - 1)
-        pixdim[1] = -pixdim[1]
-        slice2 = slice(None, None, -1)
-    else:
-        slice2 = slice(None, None, None)
-    if pixdim[2] < 0:
-        b[2] = b[2] + 1 + pixdim[2]*(data.shape[2] - 1)
-        pixdim[2] = -pixdim[2]
-        slice3 = slice(None, None, -1)
-    else:
-        slice3 = slice(None, None, None)
-    data = data[slice1, slice2, slice3]
-    affine = from_matrix_vector(np.diag(pixdim), b)
-
-    niimg = nibabel.Nifti1Image(data, affine)
-
-    return niimg
+from nilearn.image.resampling import get_bounds, reorder_img
 
 
 ################################################################################
@@ -366,7 +278,7 @@ class BaseSlicer(object):
                     **kwargs)
 
 
-    def plot_map(self, map, affine, threshold=None, **kwargs):
+    def plot_map(self, niimg, threshold=None, **kwargs):
         """ Plot a 3D map in all the views.
 
             Parameters
@@ -385,42 +297,42 @@ class BaseSlicer(object):
                 Extra keyword arguments are passed to imshow.
         """
         if threshold is not None:
+            data = niimg.get_data()
             if threshold == 0:
-                map = np.ma.masked_equal(map, 0, copy=False)
+                data = np.ma.masked_equal(data, 0, copy=False)
             else:
-                map = np.ma.masked_inside(map, -threshold, threshold, 
+                data = np.ma.masked_inside(data, -threshold, threshold,
                                           copy=False)
+            niimg = nibabel.Nifti1Image(data, niimg.affine)
 
-        self._map_show(map, affine, type='imshow', **kwargs)
+        self._map_show(niimg, type='imshow', **kwargs)
 
 
-    def contour_map(self, map, affine, **kwargs):
+    def contour_map(self, niimg, **kwargs):
         """ Contour a 3D map in all the views.
 
             Parameters
             -----------
-            map: 3D ndarray
-                The 3D map to be plotted. If it is a masked array, only
-                the non-masked part will be plotted.
-            affine: 4x4 ndarray
-                The affine matrix giving the transformation from voxel
-                indices to world space.
+            map: niimg-like
+                The Nifti-Image like object to plot
             kwargs:
                 Extra keyword arguments are passed to contour.
         """
-        self._map_show(map, affine, type='contour', **kwargs)
+        self._map_show(niimg, type='contour', **kwargs)
 
 
-    def _map_show(self, map, affine, type='imshow', **kwargs):
-        map, affine = _xyz_order(map, affine)
+    def _map_show(self, niimg, type='imshow', **kwargs):
+        niimg = reorder_img(niimg)
 
-        data_bounds = get_bounds(map.shape, affine)
+        affine = niimg.affine
+        data = niimg.get_data()
+        data_bounds = get_bounds(data.shape, affine)
         (xmin, xmax), (ymin, ymax), (zmin, zmax) = data_bounds
 
         xmin_, xmax_, ymin_, ymax_, zmin_, zmax_ = \
                                         xmin, xmax, ymin, ymax, zmin, zmax
-        if hasattr(map, 'mask'):
-            not_mask = np.logical_not(map.mask)
+        if hasattr(data, 'mask'):
+            not_mask = np.logical_not(data.mask)
             xmin_, xmax_, ymin_, ymax_, zmin_, zmax_ = \
                             get_mask_bounds(not_mask, affine)
             if kwargs.get('vmin') is None and kwargs.get('vmax') is None:
@@ -429,7 +341,7 @@ class BaseSlicer(object):
                     # Everything is masked
                     vmin = vmax = 0
                 else:
-                    masked_map = np.asarray(map)[not_mask]
+                    masked_map = np.asarray(data)[not_mask]
                     vmin = masked_map.min()
                     vmax = masked_map.max()
                 if kwargs.get('vmin') is None:
@@ -438,22 +350,21 @@ class BaseSlicer(object):
                     kwargs['vmax'] = vmax
         else:
             if not 'vmin' in kwargs:
-                kwargs['vmin'] = map.min()
+                kwargs['vmin'] = data.min()
             if not 'vmax' in kwargs:
-                kwargs['vmax'] = map.max()
+                kwargs['vmax'] = data.max()
 
         bounding_box = (xmin_, xmax_), (ymin_, ymax_), (zmin_, zmax_)
 
         # For each ax, cut the data and plot it
         for cut_ax in self.axes.itervalues():
             try:
-                cut = cut_ax.do_cut(map, affine)
+                cut = cut_ax.do_cut(data, affine)
             except IndexError:
                 # We are cutting outside the indices of the data
                 continue
             cut_ax.draw_cut(cut, data_bounds, bounding_box,
                             type=type, **kwargs)
-
 
     def edge_map(self, map, affine, color='r'):
         """ Plot the edges of a 3D map in all the views.

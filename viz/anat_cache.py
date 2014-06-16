@@ -79,9 +79,9 @@ class _AnatCache(object):
             anat_mask = ndimage.morphology.binary_fill_holes(anat > 0)
             anat = np.ma.masked_array(anat, np.logical_not(anat_mask))
             cls.anat_sform = anat_im.get_affine()
-            cls.anat = anat
+            cls.anat_im = anat_im
             cls.anat_max = anat.max()
-        return cls.anat, cls.anat_sform, cls.anat_max
+        return cls.anat_im, cls.anat_max
 
 
     @classmethod
