@@ -54,7 +54,7 @@ class CutAxes(object):
         self._object_bounds = list()
 
 
-    def do_cut(self, map, affine):
+    def do_cut(self, img):
         """ Cut the 3D volume into a 2D slice
 
             Parameters
@@ -64,6 +64,8 @@ class CutAxes(object):
             affine: 4x4 ndarray
                 The affine of the volume
         """
+        data = img.get_data()
+        affine = img.get_affine()
         coords = [0, 0, 0]
         coords['xyz'.index(self.direction)] = self.coord
         x_map, y_map, z_map = [int(np.round(c)) for c in
@@ -72,11 +74,11 @@ class CutAxes(object):
                                                coords[2],
                                                np.linalg.inv(affine))]
         if self.direction == 'y':
-            cut = np.rot90(map[:, y_map, :])
+            cut = np.rot90(data[:, y_map, :])
         elif self.direction == 'x':
-            cut = np.rot90(map[x_map, :, :])
+            cut = np.rot90(data[x_map, :, :])
         elif self.direction == 'z':
-            cut = np.rot90(map[:, :, z_map])
+            cut = np.rot90(data[:, :, z_map])
         else:
             raise ValueError('Invalid value for direction %s' %
                              self.direction)
@@ -196,17 +198,16 @@ class BaseSlicer(object):
 
 
     @staticmethod
-    def find_cut_coords(data=None, affine=None, threshold=None,
-                        cut_coords=None):
+    def find_cut_coords(img=None, threshold=None, cut_coords=None):
         # Implement this as a staticmethod or a classmethod when
         # subclassing
         raise NotImplementedError
 
     @classmethod
-    def init_with_figure(cls, data=None, affine=None, threshold=None,
+    def init_with_figure(cls, img, threshold=None,
                          cut_coords=None, figure=None, axes=None,
                          black_bg=False, leave_space=False):
-        cut_coords = cls.find_cut_coords(data, affine, threshold,
+        cut_coords = cls.find_cut_coords(img, threshold,
                                          cut_coords)
         if isinstance(axes, pl.Axes) and figure is None:
             figure = axes.figure
@@ -278,17 +279,14 @@ class BaseSlicer(object):
                     **kwargs)
 
 
-    def plot_map(self, niimg, threshold=None, **kwargs):
+    def add_overlay(self, img, threshold=None, **kwargs):
         """ Plot a 3D map in all the views.
 
             Parameters
             -----------
-            map: 3D ndarray
-                The 3D map to be plotted. If it is a masked array, only
+            img: niimg-like
+                The nifti-image-like. If it is a masked array, only
                 the non-masked part will be plotted.
-            affine: 4x4 ndarray
-                The affine matrix giving the transformation from voxel
-                indices to world space.
             threshold : a number, None, or 'auto'
                 If None is given, the maps are not thresholded.
                 If a number is given, it is used to threshold the maps:
@@ -297,35 +295,35 @@ class BaseSlicer(object):
                 Extra keyword arguments are passed to imshow.
         """
         if threshold is not None:
-            data = niimg.get_data()
+            data = img.get_data()
             if threshold == 0:
                 data = np.ma.masked_equal(data, 0, copy=False)
             else:
                 data = np.ma.masked_inside(data, -threshold, threshold,
                                           copy=False)
-            niimg = nibabel.Nifti1Image(data, niimg.affine)
+            img = nibabel.Nifti1Image(data, img.affine)
 
-        self._map_show(niimg, type='imshow', **kwargs)
+        self._map_show(img, type='imshow', **kwargs)
 
 
-    def contour_map(self, niimg, **kwargs):
+    def contour_map(self, img, **kwargs):
         """ Contour a 3D map in all the views.
 
             Parameters
             -----------
-            map: niimg-like
+            img: niimg-like
                 The Nifti-Image like object to plot
             kwargs:
                 Extra keyword arguments are passed to contour.
         """
-        self._map_show(niimg, type='contour', **kwargs)
+        self._map_show(img, type='contour', **kwargs)
 
 
-    def _map_show(self, niimg, type='imshow', **kwargs):
-        niimg = reorder_img(niimg)
+    def _map_show(self, img, type='imshow', **kwargs):
+        img = reorder_img(img)
 
-        affine = niimg.affine
-        data = niimg.get_data()
+        affine = img.affine
+        data = img.get_data()
         data_bounds = get_bounds(data.shape, affine)
         (xmin, xmax), (ymin, ymax), (zmin, zmax) = data_bounds
 
@@ -366,7 +364,7 @@ class BaseSlicer(object):
             cut_ax.draw_cut(cut, data_bounds, bounding_box,
                             type=type, **kwargs)
 
-    def edge_map(self, map, affine, color='r'):
+    def edge_map(self, img, color='r'):
         """ Plot the edges of a 3D map in all the views.
 
             Parameters
@@ -380,9 +378,9 @@ class BaseSlicer(object):
             color: matplotlib color: string or (r, g, b) value
                 The color used to display the edge map
         """
-        map, affine = _xyz_order(map, affine)
+        img = reorder_img(img)
         kwargs = dict(cmap=cm.alpha_cmap(color=color))
-        data_bounds = get_bounds(map.shape, affine)
+        data_bounds = get_bounds(img.shape, img.get_affine())
 
         # For each ax, cut the data and plot it
         for cut_ax in self.axes.itervalues():
@@ -456,15 +454,15 @@ class OrthoSlicer(BaseSlicer):
     _cut_displayed = 'yxz'
 
     @staticmethod
-    def find_cut_coords(data=None, affine=None, threshold=None,
-                        cut_coords=None):
+    def find_cut_coords(img=None, threshold=None, cut_coords=None):
         if cut_coords is None:
-            if data is None or data is False:
+            if img is None or img is False:
                 cut_coords = (0, 0, 0)
             else:
-                x_map, y_map, z_map = find_cut_coords(data,
+                x_map, y_map, z_map = find_cut_coords(img.get_data(),
                                         activation_threshold=threshold)
-                cut_coords = coord_transform(x_map, y_map, z_map, affine)
+                cut_coords = coord_transform(x_map, y_map, z_map,
+                                             img.get_affine())
         return cut_coords
 
 
@@ -568,17 +566,6 @@ class OrthoSlicer(BaseSlicer):
 
 
 
-def demo_ortho_slicer():
-    """ A small demo of the OrthoSlicer functionality.
-    """
-    pl.clf()
-    oslicer = OrthoSlicer(cut_coords=(0, 0, 0))
-    from anat_cache import _AnatCache
-    map, affine, _ = _AnatCache.get_anat()
-    oslicer.plot_map(map, affine, cmap=pl.cm.gray)
-    return oslicer
-
-
 ################################################################################
 # class BaseStackedSlicer
 ################################################################################
@@ -602,12 +589,13 @@ class BaseStackedSlicer(BaseSlicer):
         best in the viewing area.
     """
     @classmethod
-    def find_cut_coords(cls, data=None, affine=None, threshold=None,
-                        cut_coords=None):
+    def find_cut_coords(cls, img=None, threshold=None, cut_coords=None):
         if cut_coords is None:
-            if data is None or data is False:
+            if img is None or img is False:
                 bounds = ((-40, 40), (-30, 30), (-30, 75))
             else:
+                data = img.get_data()
+                affine = img.get_affine()
                 if hasattr(data, 'mask'):
                     mask = np.logical_not(data.mask)
                 else:

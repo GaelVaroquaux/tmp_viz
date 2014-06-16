@@ -65,11 +65,11 @@ def find_cut_coords(map, mask=None, activation_threshold=None):
         Parameters
         -----------
         map : 3D ndarray
-            The activation map, as a 3D image.
+            The activation map, as a 3D numpy array.
         mask : 3D ndarray, boolean, optional
             An optional brain mask.
         activation_threshold : float, optional
-            The lower threshold to the positive activation. If None, the 
+            The lower threshold to the positive activation. If None, the
             activation threshold is computed using find_activation.
 
         Returns
@@ -153,7 +153,7 @@ def get_mask_bounds(mask, affine):
 
 def get_cut_coords(map3d, slicer='z', n_cuts=12, delta_axis=3):
     """
-    Heuristically computes 'good' cross-section cut_coords for plot_map(...)
+    Heuristically computes 'good' cross-section cut_coords for plot_img(...)
     call.
 
     Parameters

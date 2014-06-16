@@ -5,7 +5,7 @@ Functions to do automatic visualization of activation-like maps.
 
 Only matplotlib is required.
 
-For a demo, see the 'demo_plot_map' function.
+For a demo, see the 'demo_plot_img' function.
 
 """
 
@@ -42,11 +42,11 @@ from edge_detect import _fast_abs_percentile
 ################################################################################
 
 
-def plot_map(niimg, cut_coords=None, anat_img=None,
+def plot_img(niimg, cut_coords=None, anat_img=None,
              slicer='ortho', figure=None, axes=None, title=None,
              threshold=None, annotate=True, draw_cross=True,
              black_bg=False, **kwargs):
-    """ Plot three cuts of a given activation map (Frontal, Axial, and Lateral)
+    """ Plot cuts of a given image (by default Frontal, Axial, and Lateral)
 
         Parameters
         ----------
@@ -110,7 +110,7 @@ def plot_map(niimg, cut_coords=None, anat_img=None,
 
             import numpy as np
             map = np.ma.masked_less(map, 0.5)
-            plot_map(map, affine)
+            plot_img(map, affine)
     """
 
     map = niimg.get_data()
@@ -144,7 +144,7 @@ def plot_map(niimg, cut_coords=None, anat_img=None,
     _plot_anat(slicer, anat_img, title=title,
                annotate=annotate, draw_cross=draw_cross)
 
-    slicer.plot_map(nibabel.Nifti1Image(map, affine), **kwargs)
+    slicer.add_overlay(nibabel.Nifti1Image(map, affine), **kwargs)
     return slicer
 
 
@@ -187,7 +187,7 @@ def _plot_anat(slicer, anat_img, title=None,
                 vmax = vmean + (1+dim)*ptp
             else:
                 vmin = vmean - (1+dim)*ptp
-        slicer.plot_map(anat_img, cmap=cmap, vmin=vmin, vmax=vmax)
+        slicer.add_overlay(anat_img, cmap=cmap, vmin=vmin, vmax=vmax)
 
         if annotate:
             slicer.annotate()
@@ -207,7 +207,7 @@ def _plot_anat(slicer, anat_img, title=None,
     return slicer
 
 
-def plot_anat(anat=None, anat_affine=None, cut_coords=None, slicer='ortho',
+def plot_anat(anat_img=None, cut_coords=None, slicer='ortho',
               figure=None, axes=None, title=None, annotate=True,
               draw_cross=True, black_bg=False, dim=False, cmap=pl.cm.gray):
     """ Plot three cuts of an anatomical image (Frontal, Axial, and Lateral)
@@ -268,12 +268,12 @@ def plot_anat(anat=None, anat_affine=None, cut_coords=None, slicer='ortho',
                                           figure=figure, axes=axes,
                                           black_bg=black_bg)
 
-    _plot_anat(slicer, anat, anat_affine, title=title,
+    _plot_anat(slicer, anat_img, title=title,
                annotate=annotate, draw_cross=draw_cross, dim=dim, cmap=cmap)
     return slicer
 
 
-def demo_plot_map(**kwargs):
+def demo_plot_img(**kwargs):
     """ Demo activation map plotting.
     """
     map = np.zeros((182, 218, 182))
@@ -287,7 +287,7 @@ def demo_plot_map(**kwargs):
     assert z_map +1 == 95
     map[x_map-5:x_map+5, y_map-3:y_map+3, z_map-10:z_map+10] = 1
     niimg = nibabel.Nifti1Image(map, mni_sform)
-    return plot_map(niimg, threshold='auto',
+    return plot_img(niimg, threshold='auto',
                         title="Broca's area", **kwargs)
 
 

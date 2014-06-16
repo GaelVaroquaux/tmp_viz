@@ -14,19 +14,19 @@ try:
 except ImportError:
     raise SkipTest('Could not import matplotlib')
 
-from ..activation_maps import demo_plot_map, plot_anat, plot_map
+from ..img_plotting import demo_plot_img, plot_anat, plot_img
 from ..anat_cache import mni_sform, _AnatCache
 
 
 
-def test_demo_plot_map():
+def test_demo_plot_img():
     # This is only a smoke test
     mp.use('svg', warn=False)
     import pylab as pl
     pl.switch_backend('svg')
-    demo_plot_map()
+    demo_plot_img()
     # Test the black background code path
-    demo_plot_map(black_bg=True)
+    demo_plot_img(black_bg=True)
 
 
 def test_plot_anat():
@@ -49,8 +49,8 @@ def test_plot_anat():
     pl.savefig(tempfile.TemporaryFile())
     z_slicer.edge_map(data, mni_sform, color='c')
     # Smoke test coordinate finder, with and without mask
-    plot_map(np.ma.masked_equal(data, 0), mni_sform, slicer='x')
-    plot_map(data, mni_sform, slicer='y')
+    plot_img(np.ma.masked_equal(data, 0), mni_sform, slicer='x')
+    plot_img(data, mni_sform, slicer='y')
 
 
 def test_anat_cache():
@@ -62,7 +62,7 @@ def test_anat_cache():
         pass
 
 
-def test_plot_map_empty():
+def test_plot_img_empty():
     # Test that things don't crash when we give a map with nothing above
     # threshold
     # This is only a smoke test
@@ -71,16 +71,16 @@ def test_plot_map_empty():
     pl.switch_backend('svg')
     data = np.zeros((20, 20, 20))
     plot_anat(data, mni_sform)
-    plot_map(data, mni_sform, slicer='y', threshold=1)
+    plot_img(data, mni_sform, slicer='y', threshold=1)
     pl.close('all')
 
 
-def test_plot_map_with_auto_cut_coords():
+def test_plot_img_with_auto_cut_coords():
     import pylab as pl
     pl.switch_backend('svg')
     data = np.zeros((20, 20, 20))
     data[3:-3, 3:-3, 3:-3] = 1
 
     for slicer in 'xyz':
-        plot_map(data, np.eye(4), cut_coords=None, slicer=slicer,
+        plot_img(data, np.eye(4), cut_coords=None, slicer=slicer,
                  black_bg=True)

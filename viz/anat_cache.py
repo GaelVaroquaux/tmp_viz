@@ -88,7 +88,7 @@ class _AnatCache(object):
     def get_blurred(cls):
         if cls.blurred is not None:
             return cls.blurred
-        anat, _, _ = cls.get_anat()
+        anat, _ = cls.get_anat()
         cls.blurred = ndimage.gaussian_filter(
                 (ndimage.morphology.binary_fill_holes(
                     ndimage.gaussian_filter(

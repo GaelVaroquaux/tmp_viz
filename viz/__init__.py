@@ -1,6 +1,6 @@
 
 from . import cm
-from .activation_maps import plot_map, plot_anat, demo_plot_map
+from .img_plotting import plot_img, plot_anat, demo_plot_img
 
-__all__ = ['cm', 'plot_map', 'plot_anat', 'demo_plot_map']
+__all__ = ['cm', 'plot_img', 'plot_anat', 'demo_plot_img']
 

@@ -12,7 +12,7 @@ try:
 except ImportError:
     raise nose.SkipTest('Could not import matplotlib')
 
-from ..slicers import demo_ortho_slicer
+from ..slicers import OrthoSlicer
 
 from ..anat_cache import find_mni_template
 
@@ -27,6 +27,10 @@ def test_demo_ortho_slicer():
     mp.use('svg', warn=False)
     import pylab as pl
     pl.switch_backend('svg')
-    demo_ortho_slicer()
+    pl.clf()
+    oslicer = OrthoSlicer(cut_coords=(0, 0, 0))
+    from anat_cache import _AnatCache
+    map, affine, _ = _AnatCache.get_anat()
+    oslicer.plot_map(map, affine, cmap=pl.cm.gray)
 
 
