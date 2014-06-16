@@ -11,7 +11,7 @@ import operator
 
 import numpy as np
 import nibabel
-from nipy.utils.skip_test import skip_if_running_nose
+from nilearn._utils.testing import skip_if_running_nose
 
 try:
     import pylab as pl

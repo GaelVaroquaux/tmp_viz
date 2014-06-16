@@ -22,7 +22,7 @@ import numpy as np
 
 import nibabel
 
-from nipy.utils.skip_test import skip_if_running_nose
+from nilearn._utils.testing import skip_if_running_nose
 
 try:
     import pylab as pl
@@ -30,12 +30,9 @@ except ImportError:
     skip_if_running_nose('Could not import matplotlib')
 
 from .anat_cache import mni_sform, mni_sform_inv, _AnatCache
-from .coord_tools import (coord_transform,
-                          get_cut_coords
-                          )
-
+from .coord_tools import coord_transform, get_cut_coords
 from .slicers import SLICERS
-from edge_detect import _fast_abs_percentile
+from .edge_detect import _fast_abs_percentile
 
 ################################################################################
 # Helper functions for 2D plotting of activation maps
