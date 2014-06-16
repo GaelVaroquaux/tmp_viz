@@ -15,7 +15,8 @@ import numpy as np
 from scipy import stats, ndimage
 
 # Local imports
-from ..mask import largest_cc
+from nilearn._utils.ndimage import largest_connected_component
+
 
 ################################################################################
 # Functions for automatic choice of cuts coordinates
@@ -100,7 +101,7 @@ def find_cut_coords(map, mask=None, activation_threshold=None):
     """
     # To speed up computations, we work with partial views of the array,
     # and keep track of the offset
-    offset = np.zeros(3) 
+    offset = np.zeros(3)
     # Deal with masked arrays:
     if hasattr(map, 'mask'):
         not_mask = np.logical_not(map.mask)
@@ -123,7 +124,7 @@ def find_cut_coords(map, mask=None, activation_threshold=None):
         activation_threshold = stats.scoreatpercentile(
                                     np.abs(my_map[my_map !=0]).ravel(), 80)
     mask = np.abs(my_map) > activation_threshold-1.e-15
-    mask = largest_cc(mask)
+    mask = largest_connected_component(mask)
     slice_x, slice_y, slice_z = ndimage.find_objects(mask)[0]
     my_map = my_map[slice_x, slice_y, slice_z]
     mask = mask[slice_x, slice_y, slice_z]
@@ -134,7 +135,7 @@ def find_cut_coords(map, mask=None, activation_threshold=None):
     second_threshold = np.abs(np.mean(my_map[mask]))
     second_mask = (np.abs(my_map)>second_threshold)
     if second_mask.sum() > 50:
-        my_map *= largest_cc(second_mask)
+        my_map *= largest_connected_component(second_mask)
     cut_coords = ndimage.center_of_mass(np.abs(my_map))
     return cut_coords + offset
 
