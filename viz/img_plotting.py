@@ -42,7 +42,7 @@ from edge_detect import _fast_abs_percentile
 ################################################################################
 
 
-def plot_img(niimg, cut_coords=None, anat_img=None,
+def plot_img(img, cut_coords=None, anat_img=None,
              slicer='ortho', figure=None, axes=None, title=None,
              threshold=None, annotate=True, draw_cross=True,
              black_bg=False, **kwargs):
@@ -113,38 +113,39 @@ def plot_img(niimg, cut_coords=None, anat_img=None,
             plot_img(map, affine)
     """
 
-    map = niimg.get_data()
-    affine = niimg.affine
+    data = img.get_data()
+    affine = img.affine
 
-    nan_mask = np.isnan(np.asarray(map))
+    nan_mask = np.isnan(np.asarray(data))
     if np.any(nan_mask):
-        map = map.copy()
-        map[nan_mask] = 0
+        data = data.copy()
+        data[nan_mask] = 0
     del nan_mask
 
     # Deal with automatic settings of plot parameters
     if threshold == 'auto':
         # Threshold epsilon above a percentile value, to be sure that some
         # voxels are indeed threshold
-        threshold = _fast_abs_percentile(map) + 1e-5
+        threshold = _fast_abs_percentile(data) + 1e-5
 
     if cut_coords is None and slicer in 'xyz':
-        cut_coords = get_cut_coords(map)
+        cut_coords = get_cut_coords(data)
 
-    slicer = SLICERS[slicer].init_with_figure(data=map, affine=affine,
+    img = nibabel.Nifti1Image(data, affine)
+    slicer = SLICERS[slicer].init_with_figure(img,
                                           threshold=threshold,
                                           cut_coords=cut_coords,
                                           figure=figure, axes=axes,
                                           black_bg=black_bg)
 
     if threshold:
-        map = np.ma.masked_inside(map, -threshold, threshold, copy=False)
+        data = np.ma.masked_inside(data, -threshold, threshold, copy=False)
 
 
     _plot_anat(slicer, anat_img, title=title,
                annotate=annotate, draw_cross=draw_cross)
 
-    slicer.add_overlay(nibabel.Nifti1Image(map, affine), **kwargs)
+    slicer.add_overlay(nibabel.Nifti1Image(data, affine), **kwargs)
     return slicer
 
 
@@ -263,7 +264,7 @@ def plot_anat(anat_img=None, cut_coords=None, slicer='ortho',
         Arrays should be passed in numpy convention: (x, y, z)
         ordered.
     """
-    slicer = SLICERS[slicer].init_with_figure(data=anat, affine=anat_affine,
+    slicer = SLICERS[slicer].init_with_figure(img=anat_img,
                                           threshold=0, cut_coords=cut_coords,
                                           figure=figure, axes=axes,
                                           black_bg=black_bg)
@@ -276,7 +277,7 @@ def plot_anat(anat_img=None, cut_coords=None, slicer='ortho',
 def demo_plot_img(**kwargs):
     """ Demo activation map plotting.
     """
-    map = np.zeros((182, 218, 182))
+    data = np.zeros((182, 218, 182))
     # Color a asymetric rectangle around Broca area:
     x, y, z = -52, 10, 22
     x_map, y_map, z_map = coord_transform(x, y, z, mni_sform_inv)
@@ -285,9 +286,9 @@ def demo_plot_img(**kwargs):
     assert x_map == 142
     assert y_map +1 == 137
     assert z_map +1 == 95
-    map[x_map-5:x_map+5, y_map-3:y_map+3, z_map-10:z_map+10] = 1
-    niimg = nibabel.Nifti1Image(map, mni_sform)
-    return plot_img(niimg, threshold='auto',
+    data[x_map-5:x_map+5, y_map-3:y_map+3, z_map-10:z_map+10] = 1
+    img = nibabel.Nifti1Image(data, mni_sform)
+    return plot_img(img, threshold='auto',
                         title="Broca's area", **kwargs)
 
 

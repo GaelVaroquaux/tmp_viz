@@ -14,6 +14,8 @@ try:
 except ImportError:
     raise SkipTest('Could not import matplotlib')
 
+import nibabel
+
 from ..img_plotting import demo_plot_img, plot_anat, plot_img
 from ..anat_cache import mni_sform, _AnatCache
 
@@ -36,30 +38,24 @@ def test_plot_anat():
     pl.switch_backend('svg')
     data = np.zeros((20, 20, 20))
     data[3:-3, 3:-3, 3:-3] = 1
-    ortho_slicer = plot_anat(data, mni_sform, dim=True)
-    ortho_slicer = plot_anat(data, mni_sform, cut_coords=(80, -120, -60))
+    img = nibabel.Nifti1Image(data, mni_sform)
+    ortho_slicer = plot_anat(img, dim=True)
+    ortho_slicer = plot_anat(img, cut_coords=(80, -120, -60))
     # Saving forces a draw, and thus smoke-tests the axes locators
     pl.savefig(tempfile.TemporaryFile())
-    ortho_slicer.edge_map(data, mni_sform, color='c')
+    ortho_slicer.edge_map(img, color='c')
 
     # Test saving with empty plot
-    z_slicer = plot_anat(anat=False, slicer='z')
+    z_slicer = plot_anat(anat_img=False, slicer='z')
     pl.savefig(tempfile.TemporaryFile())
     z_slicer = plot_anat(slicer='z')
     pl.savefig(tempfile.TemporaryFile())
-    z_slicer.edge_map(data, mni_sform, color='c')
+    z_slicer.edge_map(img, color='c')
     # Smoke test coordinate finder, with and without mask
-    plot_img(np.ma.masked_equal(data, 0), mni_sform, slicer='x')
-    plot_img(data, mni_sform, slicer='y')
-
-
-def test_anat_cache():
-    # A smoke test, that can work only if the templates are installed
-    try:
-        _AnatCache.get_blurred()
-    except OSError:
-        "The templates are not there"
-        pass
+    masked_img = nibabel.Nifti1Image(np.ma.masked_equal(data, 0),
+                                     mni_sform)
+    plot_img(masked_img, slicer='x')
+    plot_img(img, slicer='y')
 
 
 def test_plot_img_empty():
@@ -70,8 +66,9 @@ def test_plot_img_empty():
     import pylab as pl
     pl.switch_backend('svg')
     data = np.zeros((20, 20, 20))
-    plot_anat(data, mni_sform)
-    plot_img(data, mni_sform, slicer='y', threshold=1)
+    img = nibabel.Nifti1Image(data, mni_sform)
+    plot_anat(img)
+    plot_img(img, slicer='y', threshold=1)
     pl.close('all')
 
 
@@ -80,7 +77,7 @@ def test_plot_img_with_auto_cut_coords():
     pl.switch_backend('svg')
     data = np.zeros((20, 20, 20))
     data[3:-3, 3:-3, 3:-3] = 1
+    img = nibabel.Nifti1Image(data, np.eye(4))
 
     for slicer in 'xyz':
-        plot_img(data, np.eye(4), cut_coords=None, slicer=slicer,
-                 black_bg=True)
+        plot_img(img, cut_coords=None, slicer=slicer, black_bg=True)

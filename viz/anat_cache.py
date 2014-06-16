@@ -84,19 +84,5 @@ class _AnatCache(object):
         return cls.anat_im, cls.anat_max
 
 
-    @classmethod
-    def get_blurred(cls):
-        if cls.blurred is not None:
-            return cls.blurred
-        anat, _ = cls.get_anat()
-        cls.blurred = ndimage.gaussian_filter(
-                (ndimage.morphology.binary_fill_holes(
-                    ndimage.gaussian_filter(
-                            (anat > 4800).astype(np.float), 6)
-                        > 0.5
-                    )).astype(np.float),
-                2).T.ravel()
-        return cls.blurred
-
 
 

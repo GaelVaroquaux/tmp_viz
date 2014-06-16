@@ -54,18 +54,16 @@ class CutAxes(object):
         self._object_bounds = list()
 
 
-    def do_cut(self, img):
+    def do_cut(self, data, affine):
         """ Cut the 3D volume into a 2D slice
 
             Parameters
             ==========
-            map: 3D ndarray
+            data: 3D ndarray
                 The 3D volume to cut
             affine: 4x4 ndarray
                 The affine of the volume
         """
-        data = img.get_data()
-        affine = img.get_affine()
         coords = [0, 0, 0]
         coords['xyz'.index(self.direction)] = self.coord
         x_map, y_map, z_map = [int(np.round(c)) for c in
@@ -141,8 +139,7 @@ class CutAxes(object):
                 horizontalalignment='right',
                 verticalalignment='top',
                 size=size,
-                bbox=dict(boxstyle="square,pad=0",
-                            ec=bg_color, fc=bg_color, alpha=1),
+                bbox=dict(boxstyle="square,pad=0", ec=bg_color, fc=bg_color),
                 **kwargs)
 
 
@@ -379,13 +376,15 @@ class BaseSlicer(object):
                 The color used to display the edge map
         """
         img = reorder_img(img)
+        data  = img.get_data()
+        affine = img.get_affine()
         kwargs = dict(cmap=cm.alpha_cmap(color=color))
-        data_bounds = get_bounds(img.shape, img.get_affine())
+        data_bounds = get_bounds(data.shape, img.get_affine())
 
         # For each ax, cut the data and plot it
         for cut_ax in self.axes.itervalues():
             try:
-                cut = cut_ax.do_cut(map, affine)
+                cut = cut_ax.do_cut(data, affine)
                 edge_mask = _edge_map(cut)
             except IndexError:
                 # We are cutting outside the indices of the data
